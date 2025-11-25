@@ -1,0 +1,63 @@
+/* App.css */
+
+/* Navbar */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #2d3748; /* gris oscuro */
+  color: white;
+  padding: 10px 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Links */
+.navbar a {
+  margin-right: 15px;
+  text-decoration: none;
+  color: white;
+  font-weight: 500;
+}
+
+.navbar a:hover {
+  color: #a0aec0; /* gris claro */
+}
+
+/* Botones */
+.logout-btn {
+  background-color: #e53e3e; /* rojo */
+  border: none;
+  padding: 6px 12px;
+  border-radius: 5px;
+  color: white;
+  cursor: pointer;
+}
+
+.logout-btn:hover {
+  background-color: #c53030;
+}
+
+.login-btn {
+  background-color: #3182ce; /* azul */
+  padding: 6px 12px;
+  border-radius: 5px;
+  color: white;
+  text-decoration: none;
+  margin-right: 10px;
+}
+
+.login-btn:hover {
+  background-color: #2b6cb0;
+}
+
+.register-btn {
+  background-color: #38a169; /* verde */
+  padding: 6px 12px;
+  border-radius: 5px;
+  color: white;
+  text-decoration: none;
+}
+
+.register-btn:hover {
+  background-color: #2f855a;
+}
