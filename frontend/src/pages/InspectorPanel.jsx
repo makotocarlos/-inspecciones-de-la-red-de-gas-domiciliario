@@ -77,9 +77,6 @@ function InspectorPanel() {
   };
 
   const handleStartInspection = async (appointment) => {
-    // SOLUCIÓN SIMPLE: Mostrar formulario inmediatamente sin backend
-    // El formulario guardará los datos cuando el inspector lo complete
-
     // Si ya tiene una inspección existente, usar ese ID
     if (appointment.inspection) {
       setSelectedAppointment({ ...appointment, inspection_id: appointment.inspection });
@@ -87,21 +84,43 @@ function InspectorPanel() {
       return;
     }
 
-    // Si no tiene inspección, crear una "temporal" solo en el frontend
-    // Se creará en el backend cuando el inspector guarde el formulario
-    setSelectedAppointment({
-      ...appointment,
-      inspection_id: null, // null significa que se creará al guardar
-      tempInspectionData: {
+    // Si no tiene inspección, crearla primero
+    setLoading(true);
+    try {
+      const inspectionPayload = {
+        user: appointment.user,
         address: appointment.address || appointment.client_address,
         city: appointment.city || "Montería",
         neighborhood: appointment.neighborhood || "",
         gas_type: "NATURAL",
-        user: appointment.user
+        inspection_type: "RESIDENCIAL",
+        status: "SCHEDULED",
+        appointment_id: appointment.id
+      };
+
+      const response = await axios.post(
+        `${API_URL}/inspections/`,
+        inspectionPayload,
+        { headers: { Authorization: `Bearer ${getToken()}` } }
+      );
+
+      if (response.data && response.data.id) {
+        setSelectedAppointment({
+          ...appointment,
+          inspection_id: response.data.id
+        });
+        setShowInspectionForm(true);
+        showMessage("Formulario ONAC listo para llenar", "success");
       }
-    });
-    setShowInspectionForm(true);
-    showMessage("Formulario ONAC listo para llenar", "success");
+    } catch (error) {
+      console.error("Error creando inspección:", error);
+      showMessage(
+        getErrorMessage(error, "Error al iniciar la inspección"),
+        "error"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInspectionComplete = () => {

@@ -54,7 +54,8 @@ class InspectionCreateSerializer(serializers.ModelSerializer):
             'client_notes'
         ]
         extra_kwargs = {
-            'user': {'required': False, 'allow_null': True}
+            'user': {'required': False, 'allow_null': True},
+            'neighborhood': {'required': False, 'allow_blank': True}
         }
 
     def create(self, validated_data):

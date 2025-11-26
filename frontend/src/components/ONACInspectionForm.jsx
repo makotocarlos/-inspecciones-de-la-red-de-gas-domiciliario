@@ -97,14 +97,25 @@ function ONACInspectionForm({ inspectionId, onComplete, onCancel }) {
   const getToken = () => localStorage.getItem("token");
 
   useEffect(() => {
-    loadInspectionData();
+    if (inspectionId) {
+      loadInspectionData();
+    } else {
+      setLoading(false);
+    }
   }, [inspectionId]);
 
   const loadInspectionData = async () => {
+    if (!inspectionId) {
+      console.error("No inspection ID provided");
+      showMessage("Error: No se proporcionó ID de inspección", "error");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await axios.get(
-        `${API_URL}/inspections/inspections/${inspectionId}/onac_form/`,
+        `${API_URL}/inspections/${inspectionId}/onac_form/`,
         { headers: { Authorization: `Bearer ${getToken()}` } }
       );
 
@@ -122,6 +133,11 @@ function ONACInspectionForm({ inspectionId, onComplete, onCancel }) {
   };
 
   const saveProgress = async (stepData = {}) => {
+    if (!inspectionId) {
+      showMessage("Error: No se puede guardar sin ID de inspección", "error");
+      return false;
+    }
+
     setSaving(true);
     try {
       const dataToSave = {
@@ -131,7 +147,7 @@ function ONACInspectionForm({ inspectionId, onComplete, onCancel }) {
       };
 
       const response = await axios.patch(
-        `${API_URL}/inspections/inspections/${inspectionId}/onac_form/`,
+        `${API_URL}/inspections/${inspectionId}/onac_form/`,
         dataToSave,
         { headers: { Authorization: `Bearer ${getToken()}` } }
       );

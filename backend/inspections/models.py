@@ -34,7 +34,7 @@ class Inspection(ONACInspectionMixin, models.Model):
     inspector = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_inspections')
     
     address = models.CharField(max_length=255)
-    neighborhood = models.CharField(max_length=100)
+    neighborhood = models.CharField(max_length=100, blank=True, default='')
     city = models.CharField(max_length=100, default='Bogotá')
     postal_code = models.CharField(max_length=10, blank=True, null=True)
     
