@@ -15,6 +15,7 @@ function ONACInspectionForm({ inspectionId, onComplete, onCancel }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
+  const [isCompleted, setIsCompleted] = useState(false);
 
   // Estado del formulario completo
   const [formData, setFormData] = useState({
@@ -123,6 +124,7 @@ function ONACInspectionForm({ inspectionId, onComplete, onCancel }) {
         const data = response.data.data;
         setFormData(prev => ({ ...prev, ...data }));
         setCurrentStep(data.current_step || 1);
+        setIsCompleted(data.form_completed_percentage === 100 || data.status === 'COMPLETED');
       }
     } catch (error) {
       console.error("Error cargando datos:", error);
@@ -334,6 +336,13 @@ function ONACInspectionForm({ inspectionId, onComplete, onCancel }) {
         <p className="step-indicator">Paso {currentStep} de 9</p>
       </div>
 
+      {/* Completed Banner */}
+      {isCompleted && (
+        <div className="form-message success">
+          ✓ Esta inspección ha sido completada. Puedes revisar la información pero ya no se puede modificar.
+        </div>
+      )}
+
       {/* Message */}
       {message.text && (
         <div className={`form-message ${message.type}`}>
@@ -354,41 +363,66 @@ function ONACInspectionForm({ inspectionId, onComplete, onCancel }) {
           onClick={onCancel}
           disabled={saving}
         >
-          Cancelar
+          {isCompleted ? "Cerrar" : "Cancelar"}
         </button>
 
-        <div className="nav-right">
-          {currentStep > 1 && (
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={handlePrevious}
-              disabled={saving}
-            >
-              ← Anterior
-            </button>
-          )}
+        {!isCompleted && (
+          <div className="nav-right">
+            {currentStep > 1 && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handlePrevious}
+                disabled={saving}
+              >
+                ← Anterior
+              </button>
+            )}
 
-          {currentStep < 9 ? (
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={handleNext}
-              disabled={saving}
-            >
-              {saving ? "Guardando..." : "Siguiente →"}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn-complete"
-              onClick={handleComplete}
-              disabled={saving}
-            >
-              {saving ? "Guardando..." : "Completar Inspección"}
-            </button>
-          )}
-        </div>
+            {currentStep < 9 ? (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleNext}
+                disabled={saving}
+              >
+                {saving ? "Guardando..." : "Siguiente →"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn-complete"
+                onClick={handleComplete}
+                disabled={saving}
+              >
+                {saving ? "Guardando..." : "Completar Inspección"}
+              </button>
+            )}
+          </div>
+        )}
+
+        {isCompleted && (
+          <div className="nav-right">
+            {currentStep > 1 && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handlePrevious}
+              >
+                ← Anterior
+              </button>
+            )}
+            {currentStep < 9 && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setCurrentStep(prev => prev + 1)}
+              >
+                Siguiente →
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

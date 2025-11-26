@@ -289,16 +289,23 @@ function InspectorPanel() {
                       <p><strong>Notas:</strong> {appointment.notes}</p>
                     )}
                   </div>
-                  {(appointment.status === "PENDING" || appointment.status === "CONFIRMED") && (
-                    <div className="appointment-actions">
+                  <div className="appointment-actions">
+                    {appointment.status === "COMPLETED" ? (
+                      <button
+                        className="btn-secondary"
+                        onClick={() => handleStartInspection(appointment)}
+                      >
+                        Ver Inspección
+                      </button>
+                    ) : (appointment.status === "PENDING" || appointment.status === "CONFIRMED" || appointment.status === "IN_PROGRESS") && (
                       <button
                         className="btn-primary"
                         onClick={() => handleStartInspection(appointment)}
                       >
-                        Realizar Inspección
+                        {appointment.status === "IN_PROGRESS" ? "Continuar Inspección" : "Realizar Inspección"}
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

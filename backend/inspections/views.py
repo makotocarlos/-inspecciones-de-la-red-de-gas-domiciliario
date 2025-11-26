@@ -67,6 +67,17 @@ class InspectionViewSet(viewsets.ModelViewSet):
             inspection.inspector = request.user
             inspection.save()
 
+        # Link inspection to appointment if appointment_id is provided
+        appointment_id = request.data.get('appointment_id')
+        if appointment_id:
+            try:
+                from appointments.models import Appointment
+                appointment = Appointment.objects.get(id=appointment_id)
+                appointment.inspection = inspection
+                appointment.save()
+            except Appointment.DoesNotExist:
+                pass  # Continue even if appointment doesn't exist
+
         return Response(
             InspectionDetailSerializer(inspection).data,
             status=status.HTTP_201_CREATED
@@ -142,6 +153,23 @@ class InspectionViewSet(viewsets.ModelViewSet):
                     inspection.status = 'IN_PROGRESS'
                     if not inspection.started_at:
                         inspection.started_at = timezone.now()
+
+                # Check if form is being completed
+                form_percentage = request.data.get('form_completed_percentage', 0)
+                if form_percentage == 100 or request.data.get('status') == 'COMPLETED':
+                    inspection.status = 'COMPLETED'
+                    if not inspection.completed_at:
+                        inspection.completed_at = timezone.now()
+
+                    # Update associated appointment status to COMPLETED
+                    try:
+                        appointment = inspection.appointment
+                        if appointment and appointment.status != 'COMPLETED':
+                            appointment.status = 'COMPLETED'
+                            appointment.save()
+                    except Exception as e:
+                        # Log error but don't fail the inspection update
+                        print(f"Error updating appointment: {e}")
 
                 serializer.save()
 
