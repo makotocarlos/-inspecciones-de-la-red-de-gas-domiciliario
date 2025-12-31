@@ -1,5 +1,5 @@
 /**
- * Normaliza el rol de usuario para asegurar consistencia en toda la aplicación
+ * Normaliza el rol de usuario para asegurar consistencia en toda la aplicaciÃ³n
  * @param {string} role - El rol del usuario
  * @returns {string} - El rol normalizado
  */
@@ -13,6 +13,11 @@ export const normalizeRole = (role) => {
     'ADMIN': 'ADMIN',
     'ADMINISTRADOR': 'ADMIN',
     'ADMINISTRATOR': 'ADMIN',
+
+    'CALL_CENTER_ADMIN': 'CALL_CENTER_ADMIN',
+    'CALLCENTERADMIN': 'CALL_CENTER_ADMIN',
+    'CALL CENTER ADMIN': 'CALL_CENTER_ADMIN',
+    'CC_ADMIN': 'CALL_CENTER_ADMIN',
 
     'CALL_CENTER': 'CALL_CENTER',
     'CALLCENTER': 'CALL_CENTER',
@@ -33,7 +38,7 @@ export const normalizeRole = (role) => {
 };
 
 /**
- * Verifica si un usuario tiene un rol específico
+ * Verifica si un usuario tiene un rol especï¿½fico
  * @param {object} user - El objeto usuario
  * @param {string} requiredRole - El rol requerido
  * @returns {boolean} - True si el usuario tiene el rol

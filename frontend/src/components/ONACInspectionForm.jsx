@@ -10,7 +10,7 @@ const API_URL = "http://localhost:8000/api";
  * 9 pasos para completar el formulario oficial ONAC
  * Optimizado para tablets
  */
-function ONACInspectionForm({ inspectionId, onComplete, onCancel }) {
+function ONACInspectionForm({ inspectionId, appointmentId, onComplete, onCancel }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -145,8 +145,10 @@ function ONACInspectionForm({ inspectionId, onComplete, onCancel }) {
       const dataToSave = {
         ...stepData,
         current_step: currentStep,
-        form_completed_percentage: Math.round((currentStep / 9) * 100)
+        form_completed_percentage: stepData.form_completed_percentage || Math.round((currentStep / 9) * 100)
       };
+
+      console.log("Saving inspection data:", dataToSave);
 
       const response = await axios.patch(
         `${API_URL}/inspections/${inspectionId}/onac_form/`,
@@ -154,13 +156,23 @@ function ONACInspectionForm({ inspectionId, onComplete, onCancel }) {
         { headers: { Authorization: `Bearer ${getToken()}` } }
       );
 
+      console.log("Save response:", response.data);
+
       if (response.data.success) {
+        // Update local form data with response
+        if (response.data.data) {
+          setFormData(prev => ({ ...prev, ...response.data.data }));
+        }
         showMessage("Progreso guardado", "success");
         return true;
+      } else {
+        showMessage(response.data.message || "Error al guardar", "error");
+        return false;
       }
     } catch (error) {
       console.error("Error guardando:", error);
-      showMessage("Error al guardar el progreso", "error");
+      console.error("Error response:", error.response?.data);
+      showMessage("Error al guardar el progreso: " + (error.response?.data?.message || error.message), "error");
       return false;
     } finally {
       setSaving(false);
@@ -193,12 +205,68 @@ function ONACInspectionForm({ inspectionId, onComplete, onCancel }) {
     stepData.form_completed_percentage = 100;
     stepData.status = "COMPLETED";
 
+    console.log("Completing inspection with data:", stepData);
     const saved = await saveProgress(stepData);
     if (saved) {
+      // Registrar hora de finalización en el appointment
+      if (appointmentId) {
+        try {
+          const actualEndTime = new Date().toISOString();
+          await axios.patch(
+            `${API_URL}/appointments/${appointmentId}/`,
+            { 
+              status: "COMPLETED",
+              actual_end_time: actualEndTime
+            },
+            { headers: { Authorization: `Bearer ${getToken()}` } }
+          );
+          console.log("Appointment actualizado con hora de fin:", actualEndTime);
+        } catch (error) {
+          console.error("Error actualizando hora de fin:", error);
+        }
+      }
+      
+      setIsCompleted(true);
       showMessage("Inspección completada exitosamente", "success");
       setTimeout(() => {
         if (onComplete) onComplete();
       }, 1500);
+    }
+  };
+
+  // Nueva función para marcar como "Requiere Reprogramación"
+  const handleNeedsReschedule = async () => {
+    const reason = window.prompt("¿Por qué requiere reprogramación? (Ej: Cliente no disponible, Acceso bloqueado, etc.)");
+    
+    if (reason === null) {
+      return; // Canceló el prompt
+    }
+    
+    if (!reason.trim()) {
+      showMessage("Debe indicar el motivo de reprogramación", "error");
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      await axios.patch(
+        `${API_URL}/appointments/${appointmentId}/`,
+        { 
+          status: "NEEDS_RESCHEDULE",
+          notes: `Motivo reprogramación: ${reason}. ${formData.observations || ""}`
+        },
+        { headers: { Authorization: `Bearer ${getToken()}` } }
+      );
+      
+      showMessage("Cita marcada para reprogramar. El CC Admin asignará la tarea.", "success");
+      setTimeout(() => {
+        if (onComplete) onComplete();
+      }, 1500);
+    } catch (error) {
+      console.error("Error marcando para reprogramar:", error);
+      showMessage("Error al marcar para reprogramar", "error");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -356,19 +424,19 @@ function ONACInspectionForm({ inspectionId, onComplete, onCancel }) {
       </div>
 
       {/* Navigation */}
-      <div className="onac-form-navigation">
-        <button
-          type="button"
-          className="btn-secondary"
-          onClick={onCancel}
-          disabled={saving}
-        >
-          {isCompleted ? "Cerrar" : "Cancelar"}
-        </button>
-
-        {!isCompleted && (
-          <div className="nav-right">
-            {currentStep > 1 && (
+      <div className={`onac-form-navigation ${currentStep === 9 && !isCompleted ? 'final-step' : ''}`}>
+        {currentStep === 9 && !isCompleted ? (
+          <>
+            {/* Fila superior: Cancelar y Anterior */}
+            <div className="nav-top-row">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={onCancel}
+                disabled={saving}
+              >
+                Cancelar
+              </button>
               <button
                 type="button"
                 className="btn-secondary"
@@ -377,51 +445,85 @@ function ONACInspectionForm({ inspectionId, onComplete, onCancel }) {
               >
                 ← Anterior
               </button>
-            )}
-
-            {currentStep < 9 ? (
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={handleNext}
-                disabled={saving}
-              >
-                {saving ? "Guardando..." : "Siguiente →"}
-              </button>
-            ) : (
+            </div>
+            {/* Fila inferior: Completar y Reprogramar */}
+            <div className="nav-bottom-row">
               <button
                 type="button"
                 className="btn-complete"
                 onClick={handleComplete}
                 disabled={saving}
               >
-                {saving ? "Guardando..." : "Completar Inspección"}
+                {saving ? "Guardando..." : "✓ Completar Inspección"}
               </button>
-            )}
-          </div>
-        )}
+              <button
+                type="button"
+                className="btn-reschedule"
+                onClick={handleNeedsReschedule}
+                disabled={saving}
+              >
+                🔄 Reprogramar
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={onCancel}
+              disabled={saving}
+            >
+              {isCompleted ? "Cerrar" : "Cancelar"}
+            </button>
 
-        {isCompleted && (
-          <div className="nav-right">
-            {currentStep > 1 && (
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={handlePrevious}
-              >
-                ← Anterior
-              </button>
+            {!isCompleted && (
+              <div className="nav-right">
+                {currentStep > 1 && (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handlePrevious}
+                    disabled={saving}
+                  >
+                    ← Anterior
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleNext}
+                  disabled={saving}
+                >
+                  {saving ? "Guardando..." : "Siguiente →"}
+                </button>
+              </div>
             )}
-            {currentStep < 9 && (
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setCurrentStep(prev => prev + 1)}
-              >
-                Siguiente →
-              </button>
+
+            {isCompleted && (
+              <div className="nav-right">
+                {currentStep > 1 && (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handlePrevious}
+                  >
+                    ← Anterior
+                  </button>
+                )}
+                {currentStep < 9 && (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setCurrentStep(prev => prev + 1)}
+                  >
+                    Siguiente →
+                  </button>
+                )}
+              </div>
             )}
-          </div>
+          </>
         )}
       </div>
     </div>
@@ -438,7 +540,7 @@ function Step1({ formData, onChange }) {
         <label>Número de Cuenta *</label>
         <input
           type="text"
-          value={formData.account_number}
+          value={formData.account_number || ""}
           onChange={(e) => onChange("account_number", e.target.value)}
           placeholder="Ej: 12345678"
           required
@@ -449,7 +551,7 @@ function Step1({ formData, onChange }) {
         <label>Número de Medidor *</label>
         <input
           type="text"
-          value={formData.meter_number}
+          value={formData.meter_number || ""}
           onChange={(e) => onChange("meter_number", e.target.value)}
           placeholder="Ej: MED-987654"
           required
@@ -461,7 +563,7 @@ function Step1({ formData, onChange }) {
           <label>Fecha de Última Revisión</label>
           <input
             type="date"
-            value={formData.last_revision_date}
+            value={formData.last_revision_date || ""}
             onChange={(e) => onChange("last_revision_date", e.target.value)}
           />
         </div>
@@ -470,7 +572,7 @@ function Step1({ formData, onChange }) {
           <label>Fecha de Vencimiento</label>
           <input
             type="date"
-            value={formData.expiration_date}
+            value={formData.expiration_date || ""}
             onChange={(e) => onChange("expiration_date", e.target.value)}
           />
         </div>
@@ -1360,7 +1462,7 @@ function Step9({ formData, onChange }) {
           <input
             type="radio"
             name="inspection_result"
-            checked={formData.has_no_defects}
+            checked={formData.has_no_defects || false}
             onChange={() => {
               onChange("has_no_defects", true);
               onChange("has_non_critical_defect", false);
@@ -1377,7 +1479,7 @@ function Step9({ formData, onChange }) {
           <input
             type="radio"
             name="inspection_result"
-            checked={formData.has_non_critical_defect}
+            checked={formData.has_non_critical_defect || false}
             onChange={() => {
               onChange("has_no_defects", false);
               onChange("has_non_critical_defect", true);
@@ -1394,7 +1496,7 @@ function Step9({ formData, onChange }) {
           <input
             type="radio"
             name="inspection_result"
-            checked={formData.has_critical_defect}
+            checked={formData.has_critical_defect || false}
             onChange={() => {
               onChange("has_no_defects", false);
               onChange("has_non_critical_defect", false);
@@ -1413,7 +1515,7 @@ function Step9({ formData, onChange }) {
           <label>
             <input
               type="checkbox"
-              checked={formData.installation_continues_service}
+              checked={formData.installation_continues_service || false}
               onChange={(e) => onChange("installation_continues_service", e.target.checked)}
             />
             <span>Instalación Continúa en Servicio</span>
@@ -1425,7 +1527,7 @@ function Step9({ formData, onChange }) {
           <input
             type="number"
             step="0.01"
-            value={formData.meter_reading}
+            value={formData.meter_reading || ""}
             onChange={(e) => onChange("meter_reading", e.target.value)}
           />
         </div>
@@ -1435,7 +1537,7 @@ function Step9({ formData, onChange }) {
         <label>Situación de Suministro</label>
         <input
           type="text"
-          value={formData.supply_situation}
+          value={formData.supply_situation || ""}
           onChange={(e) => onChange("supply_situation", e.target.value)}
           placeholder="Descripción de la situación del suministro"
         />
@@ -1445,7 +1547,7 @@ function Step9({ formData, onChange }) {
         <label>
           <input
             type="checkbox"
-            checked={formData.inspector_affirms_safe}
+            checked={formData.inspector_affirms_safe || false}
             onChange={(e) => onChange("inspector_affirms_safe", e.target.checked)}
           />
           <span>El inspector afirma que las condiciones son seguras</span>
@@ -1459,7 +1561,7 @@ function Step9({ formData, onChange }) {
           <label>Nombre Completo del Inspector *</label>
           <input
             type="text"
-            value={formData.inspector_name}
+            value={formData.inspector_name || ""}
             onChange={(e) => onChange("inspector_name", e.target.value)}
             required
           />
@@ -1468,7 +1570,7 @@ function Step9({ formData, onChange }) {
           <label>Cédula de Competencia Laboral *</label>
           <input
             type="text"
-            value={formData.inspector_competence_id}
+            value={formData.inspector_competence_id || ""}
             onChange={(e) => onChange("inspector_competence_id", e.target.value)}
             required
           />
@@ -1479,7 +1581,7 @@ function Step9({ formData, onChange }) {
         <label>Especialidad</label>
         <input
           type="text"
-          value={formData.inspector_specialty}
+          value={formData.inspector_specialty || ""}
           onChange={(e) => onChange("inspector_specialty", e.target.value)}
           placeholder="Ej: Inspector de Instalaciones de Gas"
         />
@@ -1492,7 +1594,7 @@ function Step9({ formData, onChange }) {
           <label>Teléfono del Cliente</label>
           <input
             type="tel"
-            value={formData.client_phone}
+            value={formData.client_phone || ""}
             onChange={(e) => onChange("client_phone", e.target.value)}
           />
         </div>
@@ -1500,7 +1602,7 @@ function Step9({ formData, onChange }) {
           <label>Email del Cliente</label>
           <input
             type="email"
-            value={formData.client_email_form}
+            value={formData.client_email_form || ""}
             onChange={(e) => onChange("client_email_form", e.target.value)}
           />
         </div>
@@ -1535,7 +1637,7 @@ function Step9({ formData, onChange }) {
       <div className="form-group">
         <label>Observaciones</label>
         <textarea
-          value={formData.observations}
+          value={formData.observations || ""}
           onChange={(e) => onChange("observations", e.target.value)}
           placeholder="Ingrese cualquier observación adicional sobre la inspección"
           rows={5}

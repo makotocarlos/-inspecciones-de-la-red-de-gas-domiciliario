@@ -10,6 +10,7 @@ function AdminPanel() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("callcenter");
   const [callCenters, setCallCenters] = useState([]);
+  const [callCenterAdmins, setCallCenterAdmins] = useState([]);
   const [inspectors, setInspectors] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -25,6 +26,11 @@ function AdminPanel() {
   const [message, setMessage] = useState({ text: "", type: "" });
   const [tempPassword, setTempPassword] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  
+  // Estados para historial del inspector
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyData, setHistoryData] = useState(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
     loadUsers();
@@ -41,6 +47,11 @@ function AdminPanel() {
           headers: { Authorization: `Bearer ${getToken()}` }
         });
         setClients(response.data.clients || []);
+      } else if (activeTab === "ccadmin") {
+        response = await axios.get(`${API_URL}/auth/admin/call-center-admin/`, {
+          headers: { Authorization: `Bearer ${getToken()}` }
+        });
+        setCallCenterAdmins(response.data.call_center_admins || []);
       } else {
         const endpoint = activeTab === "callcenter" ? "call-center" : "inspectors";
         response = await axios.get(`${API_URL}/auth/admin/${endpoint}/`, {
@@ -73,7 +84,15 @@ function AdminPanel() {
     setLoading(true);
 
     try {
-      const endpoint = activeTab === "callcenter" ? "call-center" : "inspectors";
+      let endpoint;
+      if (activeTab === "callcenter") {
+        endpoint = "call-center";
+      } else if (activeTab === "ccadmin") {
+        endpoint = "call-center-admin";
+      } else {
+        endpoint = "inspectors";
+      }
+      
       const response = await axios.post(
         `${API_URL}/auth/admin/${endpoint}/`,
         formData,
@@ -128,13 +147,55 @@ function AdminPanel() {
     setTimeout(() => setMessage({ text: "", type: "" }), 5000);
   };
 
+  // Función para cargar historial del inspector
+  const loadInspectorHistory = async (inspectorId) => {
+    setLoadingHistory(true);
+    setShowHistoryModal(true);
+    
+    try {
+      const response = await axios.get(
+        `${API_URL}/auth/admin/inspectors/${inspectorId}/history/`,
+        { headers: { Authorization: `Bearer ${getToken()}` } }
+      );
+      
+      if (response.data.success) {
+        setHistoryData(response.data);
+      }
+    } catch (error) {
+      console.error("Error cargando historial:", error);
+      showMessage("Error al cargar historial del inspector", "error");
+      setShowHistoryModal(false);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // Función para obtener el color según la puntualidad
+  const getPunctualityColor = (status) => {
+    switch (status) {
+      case 'EARLY': return '#10b981';      // Verde
+      case 'ON_TIME': return '#3b82f6';    // Azul
+      case 'LATE': return '#ef4444';       // Rojo
+      default: return '#6b7280';           // Gris
+    }
+  };
+
+  // Función para formatear la puntualidad
+  const formatPunctuality = (minutes, status) => {
+    if (minutes === null) return 'Sin registro';
+    const absMinutes = Math.abs(minutes);
+    if (status === 'EARLY') return `${absMinutes} min antes`;
+    if (status === 'ON_TIME') return 'A tiempo';
+    return `${minutes} min tarde`;
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     window.location.href = "/login";
   };
 
-  const users = activeTab === "callcenter" ? callCenters : activeTab === "inspectors" ? inspectors : clients;
+  const users = activeTab === "ccadmin" ? callCenterAdmins : activeTab === "callcenter" ? callCenters : activeTab === "inspectors" ? inspectors : clients;
 
   return (
     <div className="admin-panel">
@@ -173,6 +234,15 @@ function AdminPanel() {
 
       <div className="tabs">
         <button
+          className={activeTab === "ccadmin" ? "active" : ""}
+          onClick={() => {
+            setActiveTab("ccadmin");
+            setShowForm(false);
+          }}
+        >
+          CC Admin
+        </button>
+        <button
           className={activeTab === "callcenter" ? "active" : ""}
           onClick={() => {
             setActiveTab("callcenter");
@@ -208,14 +278,14 @@ function AdminPanel() {
               className="btn-primary"
               onClick={() => setShowForm(!showForm)}
             >
-              {showForm ? "Cancelar" : `Crear ${activeTab === "callcenter" ? "Call Center" : "Inspector"}`}
+              {showForm ? "Cancelar" : `Crear ${activeTab === "ccadmin" ? "CC Admin" : activeTab === "callcenter" ? "Call Center" : "Inspector"}`}
             </button>
           </div>
         )}
 
         {showForm && (
           <form className="user-form" onSubmit={handleSubmit}>
-            <h3>Crear nuevo {activeTab === "callcenter" ? "Call Center" : "Inspector"}</h3>
+            <h3>Crear nuevo {activeTab === "ccadmin" ? "CC Admin" : activeTab === "callcenter" ? "Call Center" : "Inspector"}</h3>
 
             <div className="form-row">
               <div className="form-group">
@@ -294,7 +364,8 @@ function AdminPanel() {
 
         <div className="users-list">
           <h3>
-            {activeTab === "callcenter" ? "Call Centers" :
+            {activeTab === "ccadmin" ? "Administradores CC" :
+             activeTab === "callcenter" ? "Call Centers" :
              activeTab === "inspectors" ? "Inspectores" : "Clientes Registrados"}
           </h3>
           {loading ? (
@@ -314,6 +385,7 @@ function AdminPanel() {
                   {activeTab === "clients" && <th>Dirección</th>}
                   {activeTab === "clients" && <th>Última Inspección</th>}
                   {activeTab === "inspectors" && <th>Licencia</th>}
+                  {activeTab === "inspectors" && <th>Historial</th>}
                   {activeTab !== "clients" && <th>Estado</th>}
                   {activeTab !== "clients" && <th>Acciones</th>}
                 </tr>
@@ -335,6 +407,17 @@ function AdminPanel() {
                       </td>
                     )}
                     {activeTab === "inspectors" && <td>{user.license_number || "-"}</td>}
+                    {activeTab === "inspectors" && (
+                      <td>
+                        <button
+                          className="btn-history"
+                          onClick={() => loadInspectorHistory(user.id)}
+                          title="Ver historial de inspecciones"
+                        >
+                          📊 Historial
+                        </button>
+                      </td>
+                    )}
                     {activeTab !== "clients" && (
                       <>
                         <td>
@@ -398,6 +481,137 @@ function AdminPanel() {
             </div>
             <div className="modal-footer">
               <button className="btn-close" onClick={() => setShowPasswordModal(false)}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal */}
+      {showHistoryModal && (
+        <div className="modal-overlay" onClick={() => setShowHistoryModal(false)}>
+          <div className="modal-content history-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>📊 Historial del Inspector</h2>
+            </div>
+            
+            {loadingHistory ? (
+              <div className="modal-body">
+                <div className="loading">Cargando historial...</div>
+              </div>
+            ) : historyData ? (
+              <div className="modal-body history-body">
+
+                {/* Resumen Principal */}
+                <div className="stats-summary">
+                  <div className="summary-card total">
+                    <div className="summary-icon">📋</div>
+                    <div className="summary-content">
+                      <span className="summary-number">{historyData.statistics.total_completed}</span>
+                      <span className="summary-label">Inspecciones Completadas</span>
+                    </div>
+                  </div>
+                  <div className="summary-card punctuality">
+                    <div className="summary-icon">⏱️</div>
+                    <div className="summary-content">
+                      <span className="summary-number" style={{color: historyData.statistics.punctuality_rate >= 80 ? '#10b981' : historyData.statistics.punctuality_rate >= 60 ? '#f59e0b' : '#ef4444'}}>
+                        {historyData.statistics.punctuality_rate}%
+                      </span>
+                      <span className="summary-label">Puntualidad General</span>
+                    </div>
+                  </div>
+                  <div className="summary-card duration">
+                    <div className="summary-icon">🕐</div>
+                    <div className="summary-content">
+                      <span className="summary-number">{historyData.statistics.avg_duration_minutes}</span>
+                      <span className="summary-label">Min. Promedio</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Desglose de Puntualidad */}
+                <div className="punctuality-breakdown">
+                  <h4>Desglose de Puntualidad</h4>
+                  <div className="breakdown-grid">
+                    <div className="breakdown-item on-time">
+                      <span className="breakdown-number">{historyData.statistics.on_time_count}</span>
+                      <span className="breakdown-label">A Tiempo</span>
+                      <div className="breakdown-bar">
+                        <div className="bar-fill" style={{width: `${historyData.statistics.total_with_tracking > 0 ? (historyData.statistics.on_time_count / historyData.statistics.total_with_tracking) * 100 : 0}%`}}></div>
+                      </div>
+                    </div>
+                    <div className="breakdown-item early">
+                      <span className="breakdown-number">{historyData.statistics.early_count}</span>
+                      <span className="breakdown-label">Temprano</span>
+                      <div className="breakdown-bar">
+                        <div className="bar-fill" style={{width: `${historyData.statistics.total_with_tracking > 0 ? (historyData.statistics.early_count / historyData.statistics.total_with_tracking) * 100 : 0}%`}}></div>
+                      </div>
+                    </div>
+                    <div className="breakdown-item late">
+                      <span className="breakdown-number">{historyData.statistics.late_count}</span>
+                      <span className="breakdown-label">Tarde</span>
+                      <div className="breakdown-bar">
+                        <div className="bar-fill" style={{width: `${historyData.statistics.total_with_tracking > 0 ? (historyData.statistics.late_count / historyData.statistics.total_with_tracking) * 100 : 0}%`}}></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {historyData.statistics.late_count > 0 && (
+                  <p className="avg-delay">
+                    ⚠️ Retraso promedio cuando llega tarde: <strong>{historyData.statistics.avg_delay_minutes} minutos</strong>
+                  </p>
+                )}
+
+                {/* History Table */}
+                <h4>Historial de Inspecciones</h4>
+                {historyData.history.length === 0 ? (
+                  <p className="no-data">No hay inspecciones completadas aún</p>
+                ) : (
+                  <div className="history-table-container">
+                    <table className="history-table">
+                      <thead>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>Cliente</th>
+                          <th>Hora Programada</th>
+                          <th>Hora Real</th>
+                          <th>Puntualidad</th>
+                          <th>Duración</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {historyData.history.map((item) => (
+                          <tr key={item.id}>
+                            <td>{new Date(item.scheduled_date).toLocaleDateString('es-CO')}</td>
+                            <td>{item.client_name}</td>
+                            <td>{item.scheduled_time}</td>
+                            <td>
+                              {item.actual_start_time 
+                                ? new Date(item.actual_start_time).toLocaleTimeString('es-CO', {hour: '2-digit', minute: '2-digit'})
+                                : 'Sin registro'}
+                            </td>
+                            <td>
+                              <span 
+                                className="punctuality-badge"
+                                style={{backgroundColor: getPunctualityColor(item.punctuality_status)}}
+                              >
+                                {formatPunctuality(item.punctuality_minutes, item.punctuality_status)}
+                              </span>
+                            </td>
+                            <td>{item.duration_minutes ? `${item.duration_minutes} min` : '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            <div className="modal-footer">
+              <button className="btn-close" onClick={() => setShowHistoryModal(false)}>
                 Cerrar
               </button>
             </div>

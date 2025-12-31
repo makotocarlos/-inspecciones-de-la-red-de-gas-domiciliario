@@ -13,6 +13,7 @@ function Navbar({ user, setUser }) {
     "/admin",
     "/admin_dashboard",
     "/call-center",
+    "/call-center-admin",
     "/inspector_panel"
   ];
 

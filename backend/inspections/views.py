@@ -67,16 +67,18 @@ class InspectionViewSet(viewsets.ModelViewSet):
             inspection.inspector = request.user
             inspection.save()
 
-        # Link inspection to appointment if appointment_id is provided
-        appointment_id = request.data.get('appointment_id')
+        # Link inspection to appointment if appointment or appointment_id is provided
+        appointment_id = request.data.get('appointment_id') or request.data.get('appointment')
         if appointment_id:
             try:
                 from appointments.models import Appointment
                 appointment = Appointment.objects.get(id=appointment_id)
                 appointment.inspection = inspection
+                appointment.status = 'IN_PROGRESS'
                 appointment.save()
+                print(f"Linked inspection {inspection.id} to appointment {appointment.id}")
             except Appointment.DoesNotExist:
-                pass  # Continue even if appointment doesn't exist
+                print(f"Appointment {appointment_id} not found")
 
         return Response(
             InspectionDetailSerializer(inspection).data,
@@ -148,36 +150,68 @@ class InspectionViewSet(viewsets.ModelViewSet):
             )
 
             if serializer.is_valid():
+                # First save the form data from serializer
+                updated_inspection = serializer.save()
+                
                 # Update status to IN_PROGRESS if not already
-                if inspection.status == 'SCHEDULED' or inspection.status == 'PENDING':
-                    inspection.status = 'IN_PROGRESS'
-                    if not inspection.started_at:
-                        inspection.started_at = timezone.now()
+                status_changed = False
+                if updated_inspection.status in ['SCHEDULED', 'PENDING']:
+                    updated_inspection.status = 'IN_PROGRESS'
+                    if not updated_inspection.started_at:
+                        updated_inspection.started_at = timezone.now()
+                    status_changed = True
 
                 # Check if form is being completed
                 form_percentage = request.data.get('form_completed_percentage', 0)
-                if form_percentage == 100 or request.data.get('status') == 'COMPLETED':
-                    inspection.status = 'COMPLETED'
-                    if not inspection.completed_at:
-                        inspection.completed_at = timezone.now()
+                try:
+                    form_percentage = int(form_percentage)
+                except (TypeError, ValueError):
+                    form_percentage = 0
+                    
+                if form_percentage >= 100 or request.data.get('status') == 'COMPLETED':
+                    updated_inspection.status = 'COMPLETED'
+                    updated_inspection.form_completed_percentage = 100
+                    if not updated_inspection.completed_at:
+                        updated_inspection.completed_at = timezone.now()
+                    status_changed = True
 
                     # Update associated appointment status to COMPLETED
+                    # Try to find appointment by reverse relation or by querying
                     try:
-                        appointment = inspection.appointment
+                        from appointments.models import Appointment
+                        # First try the reverse relation
+                        try:
+                            appointment = updated_inspection.appointment
+                        except:
+                            appointment = None
+                        
+                        # If not found, query directly
+                        if not appointment:
+                            appointment = Appointment.objects.filter(inspection=updated_inspection).first()
+                        
                         if appointment and appointment.status != 'COMPLETED':
                             appointment.status = 'COMPLETED'
                             appointment.save()
+                            print(f"Appointment {appointment.id} marked as COMPLETED")
+                        elif not appointment:
+                            print(f"No appointment found for inspection {updated_inspection.id}")
                     except Exception as e:
                         # Log error but don't fail the inspection update
                         print(f"Error updating appointment: {e}")
 
-                serializer.save()
+                # Save again if status changed
+                if status_changed:
+                    updated_inspection.save()
+                    print(f"Inspection {updated_inspection.id} status updated to {updated_inspection.status}")
 
+                # Re-serialize to return updated data
+                response_serializer = ONACInspectionSerializer(updated_inspection)
                 return APIResponse.success(
-                    serializer.data,
+                    response_serializer.data,
                     'Formulario ONAC actualizado exitosamente'
                 )
 
+            print(f"Validation errors: {serializer.errors}")
             return APIResponse.error(
                 'Error de validación',
                 errors=serializer.errors,

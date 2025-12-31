@@ -7,12 +7,14 @@ from .views import (
     InspectorPanelView,
     create_client,
     manage_call_center,
+    manage_call_center_admin,
     manage_inspectors,
     manage_user,
     change_password,
     reset_user_password,
     list_inspectors,
     list_clients,
+    inspector_history,
 )
 
 urlpatterns = [
@@ -27,9 +29,11 @@ urlpatterns = [
     
     # Admin: Manage Users
     path("admin/call-center/", manage_call_center, name="manage_call_center"),
+    path("admin/call-center-admin/", manage_call_center_admin, name="manage_call_center_admin"),
     path("admin/inspectors/", manage_inspectors, name="manage_inspectors"),
     path("admin/users/<uuid:user_id>/", manage_user, name="manage_user"),
     path("admin/users/<uuid:user_id>/reset-password/", reset_user_password, name="reset_user_password"),
+    path("admin/inspectors/<uuid:inspector_id>/history/", inspector_history, name="inspector_history"),
 
     # Password Management
     path("change-password/", change_password, name="change_password"),

@@ -248,6 +248,38 @@
   font-weight: 600;
 }
 
+/* ===== Estilos para la dirección destacada ===== */
+.address-display {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 8px 0;
+}
+
+.address-display strong {
+  color: #10b981;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.address-text {
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 500;
+  display: block;
+  line-height: 1.4;
+}
+
+.appointment-details a {
+  color: #60a5fa;
+  text-decoration: none;
+}
+
+.appointment-details a:hover {
+  text-decoration: underline;
+}
+
 .appointment-actions {
   display: flex;
   gap: 12px;
@@ -342,6 +374,20 @@
   color: #ffffff;
   transition: all 0.3s ease;
   font-family: inherit;
+}
+
+/* Estilos para las opciones del select - importante para visibilidad */
+.form-group select option {
+  background-color: #1a1a2e;
+  color: #ffffff;
+  padding: 10px;
+}
+
+.form-group select option:hover,
+.form-group select option:focus,
+.form-group select option:checked {
+  background-color: #ec4899;
+  color: #ffffff;
 }
 
 .form-group textarea {
@@ -528,3 +574,221 @@
     flex-direction: column;
   }
 }
+
+/* ===== TABS DE NAVEGACIÓN DEL INSPECTOR ===== */
+.inspector-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 25px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 8px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.inspector-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 15px 25px;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  color: #9ca3af;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.inspector-tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.inspector-tab.active {
+  background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);
+}
+
+.inspector-tab .tab-icon {
+  font-size: 1.2rem;
+}
+
+.inspector-tab .tab-badge {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 700;
+}
+
+.inspector-tab.active .tab-badge {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.inspector-tab .tab-badge.history {
+  background: rgba(139, 92, 246, 0.3);
+}
+
+/* ===== SECCIÓN DE CITAS ===== */
+.appointments-section {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 25px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section-header h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.btn-refresh {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-refresh:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.25);
+  transform: translateY(-2px);
+}
+
+.btn-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.history-count {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* ===== LOADING & NO DATA ===== */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 15px;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 3px solid rgba(236, 72, 153, 0.2);
+  border-top-color: #ec4899;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-container p {
+  color: #9ca3af;
+  font-size: 1rem;
+}
+
+.no-data-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.no-data-icon {
+  font-size: 4rem;
+  margin-bottom: 15px;
+}
+
+.no-data-container .no-data {
+  font-size: 1.2rem;
+  color: #fff;
+  margin: 0 0 10px;
+}
+
+.no-data-hint {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+/* ===== HISTORY SECTION ===== */
+.history-section {
+  background: rgba(139, 92, 246, 0.05);
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
+.history-grid .appointment-card {
+  opacity: 0.85;
+}
+
+.history-card {
+  border-left: 4px solid #8b5cf6;
+}
+
+/* ===== SCHEDULE SECTION ===== */
+.schedule-section {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 25px;
+}
+
+/* ===== STATUS NEEDS RESCHEDULE ===== */
+.status-needs-reschedule {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.2), rgba(234, 88, 12, 0.2));
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+/* ===== RESPONSIVE PARA TABS ===== */
+@media (max-width: 768px) {
+  .inspector-tabs {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .inspector-tab {
+    padding: 12px 20px;
+    font-size: 0.9rem;
+  }
+
+  .section-header {
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
+  }
+}
+

@@ -10,6 +10,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminPanel from "./pages/AdminPanel";
 import InspectorPanel from "./pages/InspectorPanel";
 import CallCenterPanel from "./pages/CallCenterPanel";
+import CallCenterAdminPanel from "./pages/CallCenterAdminPanel";
 import Navbar from "./components/Navbar";
 import { normalizeRole } from "./utils/roleUtils";
 
@@ -17,6 +18,8 @@ const getRoleLandingPath = (role) => {
   switch (normalizeRole(role)) {
     case "ADMIN":
       return "/home";
+    case "CALL_CENTER_ADMIN":
+      return "/call-center-admin";
     case "CALL_CENTER":
       return "/call-center";
     case "INSPECTOR":
@@ -124,6 +127,16 @@ function App() {
           element={
             <ProtectedRoute user={user} allowedRoles={["ADMIN"]}>
               <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Call Center Admin Routes */}
+        <Route
+          path="/call-center-admin"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["CALL_CENTER_ADMIN", "ADMIN"]}>
+              <CallCenterAdminPanel />
             </ProtectedRoute>
           }
         />

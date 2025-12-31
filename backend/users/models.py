@@ -18,6 +18,7 @@ class CustomUser(AbstractUser):
     # Role choices
     class Role(models.TextChoices):
         ADMIN = 'ADMIN', 'Administrador'
+        CALL_CENTER_ADMIN = 'CALL_CENTER_ADMIN', 'Call Center Administrador'
         CALL_CENTER = 'CALL_CENTER', 'Call Center'
         INSPECTOR = 'INSPECTOR', 'Inspector'
         USER = 'USER', 'Usuario/Cliente'
@@ -116,6 +117,16 @@ class CustomUser(AbstractUser):
         blank=True,
         help_text='Fecha de la última inspección de gas realizada'
     )
+    
+    next_inspection_due = models.DateField(
+        'Próxima Inspección',
+        null=True,
+        blank=True,
+        help_text='Fecha en que vence la próxima inspección obligatoria'
+    )
+    
+    # Constante para el período de inspección (5 años)
+    INSPECTION_PERIOD_YEARS = 5
 
     # Security Fields
     verification_token = models.CharField(max_length=100, blank=True, null=True)
@@ -161,9 +172,46 @@ class CustomUser(AbstractUser):
     def is_inspector(self):
         return self.role == self.Role.INSPECTOR
     
+    @property
+    def is_call_center_admin(self):
+        return self.role == self.Role.CALL_CENTER_ADMIN
+    
+    @property
+    def days_until_inspection_due(self):
+        """Días hasta que venza la próxima inspección"""
+        if not self.next_inspection_due:
+            return None
+        from datetime import date
+        delta = self.next_inspection_due - date.today()
+        return delta.days
+    
+    @property
+    def inspection_status(self):
+        """Estado de la inspección: OK, WARNING, OVERDUE"""
+        days = self.days_until_inspection_due
+        if days is None:
+            return 'UNKNOWN'
+        if days > 90:  # Más de 3 meses
+            return 'OK'
+        elif days > 0:  # Menos de 3 meses pero no vencida
+            return 'WARNING'
+        else:  # Vencida
+            return 'OVERDUE'
+    
+    def update_inspection_dates(self, inspection_date):
+        """Actualiza las fechas de inspección después de una inspección exitosa"""
+        from datetime import timedelta
+        self.last_inspection_date = inspection_date
+        self.next_inspection_due = inspection_date + timedelta(days=self.INSPECTION_PERIOD_YEARS * 365)
+        self.save(update_fields=['last_inspection_date', 'next_inspection_due'])
+    
     def save(self, *args, **kwargs):
         if not self.username:
             self.username = self.email
+        # Auto-calcular next_inspection_due si hay last_inspection_date y no hay next_inspection_due
+        if self.last_inspection_date and not self.next_inspection_due:
+            from datetime import timedelta
+            self.next_inspection_due = self.last_inspection_date + timedelta(days=self.INSPECTION_PERIOD_YEARS * 365)
         super().save(*args, **kwargs)
 
 

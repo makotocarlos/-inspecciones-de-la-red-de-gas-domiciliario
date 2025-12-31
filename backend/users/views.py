@@ -156,19 +156,20 @@ def manage_call_center(request):
     elif request.method == 'POST':
         # Create new call center user
         data = request.data
-        username = data.get('username')
-        email = data.get('email')
-        first_name = data.get('first_name')
-        last_name = data.get('last_name')
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip().lower()
+        first_name = data.get('first_name', '').strip()
+        last_name = data.get('last_name', '').strip()
         phone = data.get('phone', '')
         
         if not all([username, email, first_name, last_name]):
             return Response({"error": "Campos obligatorios: username, email, first_name, last_name"}, status=400)
         
-        if User.objects.filter(username=username).exists():
-            return Response({"error": "El usuario ya existe"}, status=400)
+        # Check for existing username or email (case-insensitive)
+        if User.objects.filter(username__iexact=username).exists():
+            return Response({"error": "El nombre de usuario ya existe"}, status=400)
         
-        if User.objects.filter(email=email).exists():
+        if User.objects.filter(email__iexact=email).exists():
             return Response({"error": "El correo ya está registrado"}, status=400)
         
         # Generate temporary password
@@ -181,7 +182,8 @@ def manage_call_center(request):
                 password=temp_password,
                 first_name=first_name,
                 last_name=last_name,
-                role='CALL_CENTER'
+                role='CALL_CENTER',
+                is_active=True
             )
             
             if phone:
@@ -193,44 +195,122 @@ def manage_call_center(request):
                 "success": True,
                 "user": serializer.data,
                 "temp_password": temp_password,
-                "message": f"Call Center creado. Contraseña temporal: {temp_password}"
+                "message": f"Call Center creado exitosamente. Contraseña temporal: {temp_password}"
             })
         except Exception as e:
+            import traceback
+            print(f"Error creando call center: {str(e)}")
+            print(traceback.format_exc())
             return Response({"error": f"Error al crear call center: {str(e)}"}, status=500)
+
+
+# ------------------ ADMIN: GESTIÓN DE CALL CENTER ADMIN ------------------
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def manage_call_center_admin(request):
+    """Admin can view and create call center admin users"""
+    if request.user.role != 'ADMIN':
+        return Response({"error": "No autorizado"}, status=403)
+    
+    if request.method == 'GET':
+        # List all call center admin users
+        cc_admins = User.objects.filter(role='CALL_CENTER_ADMIN').order_by('-date_joined')
+        serializer = UserSerializer(cc_admins, many=True)
+        return Response({"success": True, "call_center_admins": serializer.data})
+    
+    elif request.method == 'POST':
+        # Create new call center admin user
+        data = request.data
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip().lower()
+        first_name = data.get('first_name', '').strip()
+        last_name = data.get('last_name', '').strip()
+        phone = data.get('phone', '')
+        
+        if not all([username, email, first_name, last_name]):
+            return Response({"error": "Campos obligatorios: username, email, first_name, last_name"}, status=400)
+        
+        # Check for existing username or email (case-insensitive)
+        if User.objects.filter(username__iexact=username).exists():
+            return Response({"error": "El nombre de usuario ya existe"}, status=400)
+        
+        if User.objects.filter(email__iexact=email).exists():
+            return Response({"error": "El correo ya está registrado"}, status=400)
+        
+        # Generate temporary password
+        temp_password = generate_temp_password()
+        
+        try:
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=temp_password,
+                first_name=first_name,
+                last_name=last_name,
+                role='CALL_CENTER_ADMIN',
+                is_active=True
+            )
+            
+            if phone:
+                user.phone_number = phone
+                user.save()
+            
+            serializer = UserSerializer(user)
+            return Response({
+                "success": True,
+                "user": serializer.data,
+                "temp_password": temp_password,
+                "message": f"Call Center Admin creado exitosamente. Contraseña temporal: {temp_password}"
+            })
+        except Exception as e:
+            import traceback
+            print(f"Error creando call center admin: {str(e)}")
+            print(traceback.format_exc())
+            return Response({"error": f"Error al crear call center admin: {str(e)}"}, status=500)
 
 
 # ------------------ ADMIN: GESTIÓN DE INSPECTORES ------------------
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def manage_inspectors(request):
-    """Admin can view and create inspector users"""
-    if request.user.role != 'ADMIN':
-        return Response({"error": "No autorizado"}, status=403)
-    
+    """Admin and Call Center can view inspector users, only Admin can create"""
+    # Allow ADMIN and CALL_CENTER to GET inspectors
+    # Only ADMIN can POST (create) inspectors
     if request.method == 'GET':
-        # List all inspectors
-        inspectors = User.objects.filter(role='INSPECTOR').order_by('-date_joined')
+        if request.user.role not in ['ADMIN', 'CALL_CENTER']:
+            return Response({"error": "No autorizado"}, status=403)
+        # List all active inspectors
+        inspectors = User.objects.filter(role='INSPECTOR', is_active=True).order_by('-date_joined')
         serializer = UserSerializer(inspectors, many=True)
         return Response({"success": True, "inspectors": serializer.data})
     
     elif request.method == 'POST':
+        # Only ADMIN can create inspectors
+        if request.user.role != 'ADMIN':
+            return Response({"error": "Solo administradores pueden crear inspectores"}, status=403)
+        
         # Create new inspector
         data = request.data
-        username = data.get('username')
-        email = data.get('email')
-        first_name = data.get('first_name')
-        last_name = data.get('last_name')
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip().lower()
+        first_name = data.get('first_name', '').strip()
+        last_name = data.get('last_name', '').strip()
         phone = data.get('phone', '')
-        license_number = data.get('license_number', '')
+        license_number = data.get('license_number', '').strip()
         
         if not all([username, email, first_name, last_name]):
             return Response({"error": "Campos obligatorios: username, email, first_name, last_name"}, status=400)
         
-        if User.objects.filter(username=username).exists():
-            return Response({"error": "El usuario ya existe"}, status=400)
+        # Check for existing username or email (case-insensitive)
+        if User.objects.filter(username__iexact=username).exists():
+            return Response({"error": "El nombre de usuario ya existe"}, status=400)
         
-        if User.objects.filter(email=email).exists():
+        if User.objects.filter(email__iexact=email).exists():
             return Response({"error": "El correo ya está registrado"}, status=400)
+        
+        # Check for existing license number (if provided)
+        if license_number and User.objects.filter(license_number=license_number).exists():
+            return Response({"error": f"El número de licencia '{license_number}' ya está registrado"}, status=400)
         
         # Generate temporary password
         temp_password = generate_temp_password()
@@ -243,7 +323,8 @@ def manage_inspectors(request):
                 first_name=first_name,
                 last_name=last_name,
                 role='INSPECTOR',
-                license_number=license_number
+                license_number=license_number if license_number else None,
+                is_active=True
             )
             
             if phone:
@@ -255,9 +336,12 @@ def manage_inspectors(request):
                 "success": True,
                 "user": serializer.data,
                 "temp_password": temp_password,
-                "message": f"Inspector creado. Contraseña temporal: {temp_password}"
+                "message": f"Inspector creado exitosamente. Contraseña temporal: {temp_password}"
             })
         except Exception as e:
+            import traceback
+            print(f"Error creando inspector: {str(e)}")
+            print(traceback.format_exc())
             return Response({"error": f"Error al crear inspector: {str(e)}"}, status=500)
 
 
@@ -401,3 +485,103 @@ def list_clients(request):
         })
 
     return Response({"success": True, "clients": clients_data})
+
+
+# ------------------ HISTORIAL DE INSPECTOR PARA ADMIN ------------------
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def inspector_history(request, inspector_id):
+    """Admin can view history and statistics for an inspector"""
+    if request.user.role != 'ADMIN':
+        return Response({"error": "No autorizado"}, status=403)
+    
+    try:
+        inspector = User.objects.get(id=inspector_id, role='INSPECTOR')
+    except User.DoesNotExist:
+        return Response({"error": "Inspector no encontrado"}, status=404)
+    
+    from appointments.models import Appointment
+    from django.db.models import Avg, Count, Q
+    from datetime import timedelta
+    
+    # Obtener todas las citas completadas del inspector
+    appointments = Appointment.objects.filter(
+        inspector=inspector,
+        status='COMPLETED'
+    ).order_by('-scheduled_date', '-scheduled_time')
+    
+    # Estadísticas de puntualidad
+    completed_with_start = appointments.filter(actual_start_time__isnull=False)
+    
+    total_completed = appointments.count()
+    total_with_tracking = completed_with_start.count()
+    
+    # Calcular puntualidad
+    on_time_count = 0
+    early_count = 0
+    late_count = 0
+    total_delay_minutes = 0
+    
+    history_list = []
+    
+    for apt in appointments:
+        history_item = {
+            'id': str(apt.id),
+            'client_name': apt.client_name,
+            'address': apt.address,
+            'scheduled_date': apt.scheduled_date.isoformat(),
+            'scheduled_time': apt.scheduled_time.strftime('%H:%M'),
+            'actual_start_time': apt.actual_start_time.isoformat() if apt.actual_start_time else None,
+            'actual_end_time': apt.actual_end_time.isoformat() if apt.actual_end_time else None,
+            'punctuality_minutes': apt.punctuality_minutes,
+            'punctuality_status': apt.punctuality_status,
+            'duration_minutes': apt.duration_minutes,
+        }
+        history_list.append(history_item)
+        
+        # Contar estadísticas
+        if apt.punctuality_status == 'ON_TIME':
+            on_time_count += 1
+        elif apt.punctuality_status == 'EARLY':
+            early_count += 1
+        elif apt.punctuality_status == 'LATE':
+            late_count += 1
+            if apt.punctuality_minutes:
+                total_delay_minutes += apt.punctuality_minutes
+    
+    # Calcular porcentajes y promedios
+    punctuality_rate = round((on_time_count + early_count) / total_with_tracking * 100, 1) if total_with_tracking > 0 else 0
+    avg_delay = round(total_delay_minutes / late_count, 1) if late_count > 0 else 0
+    
+    # Duración promedio
+    durations = [apt.duration_minutes for apt in appointments if apt.duration_minutes]
+    avg_duration = round(sum(durations) / len(durations), 1) if durations else 0
+    
+    # Información del inspector
+    inspector_data = {
+        'id': str(inspector.id),
+        'full_name': f"{inspector.first_name} {inspector.last_name}",
+        'email': inspector.email,
+        'license_number': inspector.license_number,
+        'phone_number': str(inspector.phone_number) if inspector.phone_number else '',
+        'date_joined': inspector.date_joined.isoformat(),
+    }
+    
+    # Estadísticas
+    statistics = {
+        'total_completed': total_completed,
+        'total_with_tracking': total_with_tracking,
+        'on_time_count': on_time_count,
+        'early_count': early_count,
+        'late_count': late_count,
+        'punctuality_rate': punctuality_rate,
+        'avg_delay_minutes': avg_delay,
+        'avg_duration_minutes': avg_duration,
+    }
+    
+    return Response({
+        "success": True,
+        "inspector": inspector_data,
+        "statistics": statistics,
+        "history": history_list
+    })
